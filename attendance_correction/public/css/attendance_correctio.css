@@ -1,0 +1,27 @@
+.attendance-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-light);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.attendance-toolbar .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.row-changed {
+    background-color: #fff3cd !important;
+}
+
+.status-select {
+    font-weight: 600;
+}
+
+.table thead th {
+    background: #f1f3f5;
+}

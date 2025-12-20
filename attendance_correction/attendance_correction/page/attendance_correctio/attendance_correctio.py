@@ -1,12 +1,12 @@
 import frappe
+import json
+from frappe.model.document import Document
+
 
 @frappe.whitelist()
 def get_attendance_records(employee=None, shift=None, date=None):
-    """
-    Fetch attendance records from Attendance Doctype
-    Filters: employee, shift, date (optional)
-    """
     filters = {}
+
     if employee:
         filters["employee"] = employee
     if shift:
@@ -14,7 +14,7 @@ def get_attendance_records(employee=None, shift=None, date=None):
     if date:
         filters["attendance_date"] = date
 
-    records = frappe.get_all(
+    return frappe.get_all(
         "Attendance",
         filters=filters,
         fields=[
@@ -23,43 +23,65 @@ def get_attendance_records(employee=None, shift=None, date=None):
             "employee_name",
             "attendance_date",
             "status",
-            "shift",
             "working_hours",
+            "custom_overtime", 
             "in_time",
-            "out_time"
+            "out_time",
+            "docstatus"
         ]
     )
-    return records
 
 @frappe.whitelist()
 def update_attendance(data):
-    """
-    Update Attendance records, including submitted records
-    Cancel → Update → Submit
-    """
     import json
-    rows = json.loads(data)
+    data = json.loads(data)
+    updated = 0
 
-    for row in rows:
-        doc = frappe.get_doc("Attendance", row["name"])
+    for row in data:
+        if not row.get("name"):
+            continue
 
-        was_submitted = doc.docstatus == 1  # Check if previously submitted
+        docname = row["name"]
 
-        # Cancel if submitted
-        if was_submitted:
-            doc.cancel()
+        # -----------------------------------
+        # 1️⃣ Unlink Employee Checkins (SAFE)
+        # -----------------------------------
+        frappe.db.sql("""
+            UPDATE `tabEmployee Checkin`
+            SET attendance = NULL
+            WHERE attendance = %s
+        """, docname)
 
-        # Update fields
-        doc.status = row.get("status")
-        doc.working_hours = row.get("working_hours")
-        doc.in_time = row.get("in_time")
-        doc.out_time = row.get("out_time")
-        doc.save(ignore_permissions=True)
+        # -----------------------------------
+        # 2️⃣ Cancel Attendance (force)
+        # -----------------------------------
+        frappe.db.set_value(
+            "Attendance",
+            docname,
+            "docstatus",
+            2,
+            update_modified=False
+        )
 
-        # Re-submit if previously submitted
-        if was_submitted:
-            doc.submit()
+        # -----------------------------------
+        # 3️⃣ Update Attendance & re-submit
+        # -----------------------------------
+        frappe.db.set_value(
+            "Attendance",
+            docname,
+            {
+                "status": row.get("status"),
+                "working_hours": row.get("working_hours"),
+                "custom_overtime": row.get("custom_overtime"),  # 👈 SAVE OVERTIME
+                "in_time": row.get("in_time"),
+                "out_time": row.get("out_time"),
+                "docstatus": 1
+            },
+            update_modified=False
+        )
 
-    return "Attendance changes saved successfully!"
+        updated += 1
 
+    frappe.db.commit()
+    return f"{updated} Attendance record(s) corrected successfully"
 

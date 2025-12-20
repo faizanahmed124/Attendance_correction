@@ -63,6 +63,7 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                         <th>Date</th>
                         <th>Status</th>
                         <th>Working Hours</th>
+                        <th>Overtime Hours</th>
                         <th>In Time</th>
                         <th>Out Time</th>
                     </tr>
