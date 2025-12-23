@@ -18,8 +18,13 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
         </div>
 
         <div class="form-group">
-            <label>Date</label>
-            <input type="date" class="form-control" id="date">
+            <label>From Date</label>
+            <input type="date" class="form-control" id="from_date">
+        </div>
+
+        <div class="form-group">
+            <label>To Date</label>
+            <input type="date" class="form-control" id="to_date">
         </div>
 
         <button class="btn btn-primary" id="load-data">Load Data</button>
@@ -37,11 +42,17 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
     $("#load-data").click(() => {
         const emp = $("#employee").val();
         const shift = $("#shift").val();
-        const date = $("#date").val();
+        const from_date = $("#from_date").val();
+        const to_date = $("#to_date").val();
 
         frappe.call({
             method: "attendance_correction.attendance_correction.page.attendance_correctio.attendance_correctio.get_attendance_records",
-            args: { employee: emp, shift: shift, date: date },
+            args: { 
+                employee: emp, 
+                shift: shift, 
+                from_date: from_date, 
+                to_date: to_date 
+            },
             callback: function(r) {
                 tableData = r.message;
                 if (tableData.length === 0) {
@@ -54,6 +65,9 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
     });
 
     function renderTable(data) {
+        let total_working = 0;
+        let total_overtime = 0;
+
         let html = `
             <table class="table table-bordered">
                 <thead>
@@ -72,6 +86,9 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
         `;
 
         data.forEach((row, i) => {
+            total_working += parseFloat(row.working_hours) || 0;
+            total_overtime += parseFloat(row.custom_overtime) || 0;
+
             html += `
                 <tr>
                     <td>${row.employee}</td>
@@ -87,20 +104,44 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                     </td>
 
                     <td><input type="number" data-i="${i}" data-field="working_hours" value="${row.working_hours}" class="form-control"></td>
+                    <td><input type="number" data-i="${i}" data-field="custom_overtime" value="${row.custom_overtime || 0}" class="form-control"></td>
                     <td><input type="text" data-i="${i}" data-field="in_time" value="${row.in_time || ''}" class="form-control"></td>
                     <td><input type="text" data-i="${i}" data-field="out_time" value="${row.out_time || ''}" class="form-control"></td>
                 </tr>
             `;
         });
 
-        html += "</tbody></table>";
+        // Footer with totals
+        html += `
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="4" style="text-align:right">Total:</th>
+                    <th>${total_working.toFixed(2)}</th>
+                    <th>${total_overtime.toFixed(2)}</th>
+                    <th colspan="2"></th>
+                </tr>
+            </tfoot>
+        `;
+
+        html += "</table>";
         $("#attendance-table").html(html);
 
-        // Update tableData on input/select change
+        // Update tableData on input/select change & recalculate totals
         $("input, select").on("change", function() {
             let i = $(this).data("i");
             let field = $(this).data("field");
             tableData[i][field] = $(this).val();
+
+            total_working = 0;
+            total_overtime = 0;
+            tableData.forEach(row => {
+                total_working += parseFloat(row.working_hours) || 0;
+                total_overtime += parseFloat(row.custom_overtime) || 0;
+            });
+
+            $("tfoot th:eq(0)").next().text(total_working.toFixed(2));
+            $("tfoot th:eq(1)").text(total_overtime.toFixed(2));
         });
     }
 
