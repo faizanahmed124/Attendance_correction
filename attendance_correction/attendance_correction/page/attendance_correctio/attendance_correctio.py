@@ -53,15 +53,21 @@ def update_attendance(data):
             "custom_allow_overtime"
         )
 
+        # Incoming overtime from UI
         incoming_overtime = float(row.get("custom_overtime") or 0)
 
+        # 🔑 EXISTING overtime in DB
+        existing_overtime = frappe.db.get_value(
+            "Attendance",
+            docname,
+            "custom_overtime"
+        ) or 0
 
-        # ❌ BLOCK overtime if not allowed
-        if not allow_overtime and incoming_overtime > 0:
-            frappe.throw(
-                f"❌ Sorry, overtime isn’t allowed for employee: {employee}",
-                frappe.PermissionError
-            )
+        # 🔒 Decide final overtime
+        if allow_overtime:
+            final_overtime = incoming_overtime
+        else:
+            final_overtime = existing_overtime  # 👈 DO NOT TOUCH
 
         # 1️⃣ Unlink Employee Checkins
         frappe.db.sql("""
@@ -86,7 +92,7 @@ def update_attendance(data):
             {
                 "status": row.get("status"),
                 "working_hours": row.get("working_hours"),
-                "custom_overtime": incoming_overtime if allow_overtime else 0,
+                "custom_overtime": final_overtime,  # 🔒 protected
                 "in_time": row.get("in_time"),
                 "out_time": row.get("out_time"),
                 "docstatus": 1
@@ -98,4 +104,6 @@ def update_attendance(data):
 
     frappe.db.commit()
     return f"{updated} Attendance record(s) corrected successfully"
+
+
 

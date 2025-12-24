@@ -38,6 +38,30 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
 
     let tableData = [];
 
+    // 🔹 Helper: check overtime permission + popup
+    function checkOvertimeAllowed(row, inputEl) {
+        frappe.call({
+            method: "frappe.client.get_value",
+            args: {
+                doctype: "Employee",
+                filters: { name: row.employee },
+                fieldname: "custom_allow_overtime"
+            },
+            callback: function(r) {
+                if (r.message && r.message.custom_allow_overtime == 0) {
+                    frappe.msgprint({
+                        title: __("Overtime Not Allowed"),
+                        message: __("Sorry, overtime isn’t allowed for this employee."),
+                        indicator: "red"
+                    });
+
+                    // revert overtime value
+                    inputEl.val(row.custom_overtime || 0);
+                }
+            }
+        });
+    }
+
     // Load Data Button
     $("#load-data").click(() => {
         const emp = $("#employee").val();
@@ -54,7 +78,7 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                 to_date: to_date 
             },
             callback: function(r) {
-                tableData = r.message;
+                tableData = r.message || [];
                 if (tableData.length === 0) {
                     $("#attendance-table").html("<p>No records found.</p>");
                 } else {
@@ -103,15 +127,29 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                         </select>
                     </td>
 
-                    <td><input type="number" data-i="${i}" data-field="working_hours" value="${row.working_hours}" class="form-control"></td>
-                    <td><input type="number" data-i="${i}" data-field="custom_overtime" value="${row.custom_overtime || 0}" class="form-control"></td>
-                    <td><input type="text" data-i="${i}" data-field="in_time" value="${row.in_time || ''}" class="form-control"></td>
-                    <td><input type="text" data-i="${i}" data-field="out_time" value="${row.out_time || ''}" class="form-control"></td>
+                    <td>
+                        <input type="number" data-i="${i}" data-field="working_hours"
+                            value="${row.working_hours}" class="form-control">
+                    </td>
+
+                    <td>
+                        <input type="number" data-i="${i}" data-field="custom_overtime"
+                            value="${row.custom_overtime || 0}" class="form-control">
+                    </td>
+
+                    <td>
+                        <input type="text" data-i="${i}" data-field="in_time"
+                            value="${row.in_time || ''}" class="form-control">
+                    </td>
+
+                    <td>
+                        <input type="text" data-i="${i}" data-field="out_time"
+                            value="${row.out_time || ''}" class="form-control">
+                    </td>
                 </tr>
             `;
         });
 
-        // Footer with totals
         html += `
             </tbody>
             <tfoot>
@@ -122,16 +160,23 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                     <th colspan="2"></th>
                 </tr>
             </tfoot>
+        </table>
         `;
 
-        html += "</table>";
         $("#attendance-table").html(html);
 
-        // Update tableData on input/select change & recalculate totals
+        // Update tableData on change
         $("input, select").on("change", function() {
             let i = $(this).data("i");
             let field = $(this).data("field");
-            tableData[i][field] = $(this).val();
+            let inputEl = $(this);
+
+            // 🚨 overtime popup check
+            if (field === "custom_overtime") {
+                checkOvertimeAllowed(tableData[i], inputEl);
+            }
+
+            tableData[i][field] = inputEl.val();
 
             total_working = 0;
             total_overtime = 0;
@@ -147,17 +192,50 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
 
     // Save Changes Button
     $("#save-changes").click(() => {
-        if(tableData.length === 0){
+        if (tableData.length === 0) {
             frappe.msgprint("No data to update.");
             return;
         }
+        let overtimeWarningShown = false;
+
+tableData.forEach(row => {
+    if (
+        !overtimeWarningShown &&
+        row.custom_overtime != row._original_overtime
+    ) {
+        // check from backend if overtime allowed
+        frappe.call({
+            method: "frappe.client.get_value",
+            args: {
+                doctype: "Employee",
+                filters: { name: row.employee },
+                fieldname: "custom_allow_overtime"
+            },
+            async: false,
+            callback: function(r) {
+                if (r.message && r.message.custom_allow_overtime == 0) {
+                    frappe.msgprint({
+                        title: __("Overtime Not Allowed"),
+                        message: __(
+                            "Sorry, overtime isn’t allowed for employee {0}. Overtime changes will be ignored.",
+                            [row.employee]
+                        ),
+                        indicator: "red"
+                    });
+                    overtimeWarningShown = true;
+                }
+            }
+        });
+    }
+});
+
 
         frappe.call({
             method: "attendance_correction.attendance_correction.page.attendance_correctio.attendance_correctio.update_attendance",
             args: { data: JSON.stringify(tableData) },
             callback: function(r) {
                 frappe.msgprint(r.message || "Attendance Updated Successfully");
-                $("#load-data").click(); // Reload table after update
+                $("#load-data").click();
             }
         });
     });
