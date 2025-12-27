@@ -91,6 +91,8 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
     function renderTable(data) {
         let total_working = 0;
         let total_overtime = 0;
+        let total_present_days = 0;
+
 
         let html = `
             <table class="table table-bordered">
@@ -112,6 +114,10 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
         data.forEach((row, i) => {
             total_working += parseFloat(row.working_hours) || 0;
             total_overtime += parseFloat(row.custom_overtime) || 0;
+
+            if (row.status === "Present"){
+                total_present_days += 1 // Count Present 
+            }
 
             html += `
                 <tr>
@@ -153,12 +159,16 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
         html += `
             </tbody>
             <tfoot>
-                <tr>
-                    <th colspan="4" style="text-align:right">Total:</th>
-                    <th>${total_working.toFixed(2)}</th>
-                    <th>${total_overtime.toFixed(2)}</th>
-                    <th colspan="2"></th>
-                </tr>
+            <tr>
+                 <th colspan="2" style="text-align:right">Present Days:</th>
+                 <th>${total_present_days}</th>
+         
+                 <th style="text-align:right">Total Working Hours:</th>
+                 <th>${total_working.toFixed(2)}</th>
+         
+                 <th style="text-align:right">Overtime Hours:</th>
+                 <th>${total_overtime.toFixed(2)}</th>
+             </tr>
             </tfoot>
         </table>
         `;
