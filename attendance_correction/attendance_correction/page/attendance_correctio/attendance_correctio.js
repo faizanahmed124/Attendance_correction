@@ -6,35 +6,53 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
     });
 
     // Inject HTML Template
-    page.body.html(`
-        <div class="form-group">
-            <label>Employee</label>
-            <input type="text" class="form-control" id="employee">
-        </div>
+page.body.html(`
+    <div class="form-group">
+        <label>Employee</label>
+        <input type="text" class="form-control" id="employee">
+    </div>
 
-        <div class="form-group">
-            <label>Shift</label>
-            <input type="text" class="form-control" id="shift">
-        </div>
+    <div class="form-group">
+        <label>Department</label>
+        <input type="text" class="form-control" id="department">
+    </div>
 
-        <div class="form-group">
-            <label>From Date</label>
-            <input type="date" class="form-control" id="from_date">
-        </div>
+    <div class="form-group">
+        <label>Shift</label>
+        <input type="text" class="form-control" id="shift">
+    </div>
 
-        <div class="form-group">
-            <label>To Date</label>
-            <input type="date" class="form-control" id="to_date">
-        </div>
+    <div class="form-group">
+        <label>From Date</label>
+        <input type="date" class="form-control" id="from_date">
+    </div>
 
-        <button class="btn btn-primary" id="load-data">Load Data</button>
+    <div class="form-group">
+        <label>To Date</label>
+        <input type="date" class="form-control" id="to_date">
+    </div>
 
-        <hr>
+    <button class="btn btn-primary" id="load-data">Load Data</button>
 
-        <div id="attendance-table"></div>
+    <hr>
 
-        <button class="btn btn-success" id="save-changes">Save Changes</button>
-    `);
+    <div id="attendance-table"></div>
+
+    <button class="btn btn-success" id="save-changes">Save Changes</button>
+`);
+// 🔹 Department Link Field (Autocomplete)
+let department_field = frappe.ui.form.make_control({
+    parent: page.body.find(".form-group:contains('Department')"),
+    df: {
+        fieldtype: "Link",
+        options: "Department",
+        label: "Department",
+        fieldname: "department",
+        placeholder: "Select Department"
+    },
+    render_input: true
+});
+
 
     let tableData = [];
 
@@ -65,6 +83,7 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
     // Load Data Button
     $("#load-data").click(() => {
         const emp = $("#employee").val();
+        const department = department_field.get_value();
         const shift = $("#shift").val();
         const from_date = $("#from_date").val();
         const to_date = $("#to_date").val();
@@ -73,6 +92,7 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
             method: "attendance_correction.attendance_correction.page.attendance_correctio.attendance_correctio.get_attendance_records",
             args: { 
                 employee: emp, 
+                department: department,
                 shift: shift, 
                 from_date: from_date, 
                 to_date: to_date 
@@ -125,13 +145,18 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                     <td>${row.employee_name}</td>
                     <td>${row.attendance_date}</td>
 
-                    <td>
-                        <select data-i="${i}" data-field="status" class="form-control">
-                            <option value="Present" ${row.status=="Present"?"selected":""}>Present</option>
-                            <option value="Absent" ${row.status=="Absent"?"selected":""}>Absent</option>
-                            <option value="Half Day" ${row.status=="Half Day"?"selected":""}>Half Day</option>
-                        </select>
-                    </td>
+                  <td>
+    <select 
+        data-i="${i}" 
+        data-field="status" 
+        class="form-control status-select ${row.status === 'Present' ? 'status-present' : row.status === 'Absent' ? 'status-absent' : 'status-half'}">
+        
+        <option value="Present" ${row.status=="Present"?"selected":""}>Present</option>
+        <option value="Absent" ${row.status=="Absent"?"selected":""}>Absent</option>
+        <option value="Half Day" ${row.status=="Half Day"?"selected":""}>Half Day</option>
+    </select>
+</td>
+
 
                     <td>
                         <input type="number" data-i="${i}" data-field="working_hours"
@@ -176,28 +201,44 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
         $("#attendance-table").html(html);
 
         // Update tableData on change
-        $("input, select").on("change", function() {
-            let i = $(this).data("i");
-            let field = $(this).data("field");
-            let inputEl = $(this);
+// Update tableData on change
+$("input, select").on("change", function() {
+    let i = $(this).data("i");
+    let field = $(this).data("field");
+    let inputEl = $(this);
 
-            // 🚨 overtime popup check
-            if (field === "custom_overtime") {
-                checkOvertimeAllowed(tableData[i], inputEl);
-            }
+    // 🚨 overtime popup check
+    if (field === "custom_overtime") {
+        checkOvertimeAllowed(tableData[i], inputEl);
+    }
 
-            tableData[i][field] = inputEl.val();
+    tableData[i][field] = inputEl.val();
 
-            total_working = 0;
-            total_overtime = 0;
-            tableData.forEach(row => {
-                total_working += parseFloat(row.working_hours) || 0;
-                total_overtime += parseFloat(row.custom_overtime) || 0;
-            });
+    // 🔢 recalculate totals
+    total_working = 0;
+    total_overtime = 0;
+    tableData.forEach(row => {
+        total_working += parseFloat(row.working_hours) || 0;
+        total_overtime += parseFloat(row.custom_overtime) || 0;
+    });
 
-            $("tfoot th:eq(0)").next().text(total_working.toFixed(2));
-            $("tfoot th:eq(1)").text(total_overtime.toFixed(2));
-        });
+    $("tfoot th:eq(0)").next().text(total_working.toFixed(2));
+    $("tfoot th:eq(1)").text(total_overtime.toFixed(2));
+
+    // ✅ STATUS COLOR UPDATE (ADDED)
+    if (field === "status") {
+        inputEl
+            .removeClass("status-present status-absent status-half")
+            .addClass(
+                inputEl.val() === "Present"
+                    ? "status-present"
+                    : inputEl.val() === "Absent"
+                    ? "status-absent"
+                    : "status-half"
+            );
+    }
+});
+
     }
 
     // Save Changes Button
@@ -250,3 +291,24 @@ tableData.forEach(row => {
         });
     });
 };
+
+
+$(`<style>
+    .status-present {
+        background-color: #d4edda !important;
+        color: #155724 !important;
+        font-weight: bold;
+    }
+
+    .status-absent {
+        background-color: #f8d7da !important;
+        color: #ea0920ff !important;
+        font-weight: bold;
+    }
+
+    .status-half {
+        background-color: #fff3cd !important;
+        color: #856404 !important;
+        font-weight: bold;
+    }
+</style>`).appendTo("head");
