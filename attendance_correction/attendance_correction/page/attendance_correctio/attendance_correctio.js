@@ -146,15 +146,17 @@ let department_field = frappe.ui.form.make_control({
                     <td>${row.attendance_date}</td>
 
                   <td>
-    <select 
-        data-i="${i}" 
-        data-field="status" 
-        class="form-control status-select ${row.status === 'Present' ? 'status-present' : row.status === 'Absent' ? 'status-absent' : 'status-half'}">
-        
-        <option value="Present" ${row.status=="Present"?"selected":""}>Present</option>
-        <option value="Absent" ${row.status=="Absent"?"selected":""}>Absent</option>
-        <option value="Half Day" ${row.status=="Half Day"?"selected":""}>Half Day</option>
-    </select>
+   <select 
+    data-i="${i}" 
+    data-field="status" 
+    class="form-control status-select ${row.status === 'Present' ? 'status-present' : row.status === 'Absent' ? 'status-absent' : row.status === 'Half Day' ? 'status-half' : row.status === 'Rest' ? 'status-rest' : ''}">
+    
+    <option value="Present" ${row.status=="Present"?"selected":""}>Present</option>
+    <option value="Absent" ${row.status=="Absent"?"selected":""}>Absent</option>
+    <option value="Half Day" ${row.status=="Half Day"?"selected":""}>Half Day</option>
+    <option value="Rest" ${row.status=="Rest"?"selected":""}>Rest</option>
+</select>
+
 </td>
 
 
