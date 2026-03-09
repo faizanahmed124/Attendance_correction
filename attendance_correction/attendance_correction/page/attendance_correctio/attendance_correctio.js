@@ -5,54 +5,50 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
         single_column: true
     });
 
-    // Inject HTML Template
-page.body.html(`
-    <div class="form-group">
-        <label>Employee</label>
-        <input type="text" class="form-control" id="employee">
-    </div>
+    // 🔹 Compact search fields (single row) with original datepicker
+    page.body.html(`
+        <div class="form-inline" style="gap:10px; display:flex; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+            <div class="form-group">
+                <label style="margin-right:5px;">Employee</label>
+                <input type="text" class="form-control" id="employee" style="width:150px;">
+            </div>
 
-    <div class="form-group">
-        <label>Department</label>
-        <input type="text" class="form-control" id="department">
-    </div>
+            <div class="form-group" id="department-wrapper">
+                <!-- Department Link field will be injected here -->
+            </div>
 
-    <div class="form-group">
-        <label>Shift</label>
-        <input type="text" class="form-control" id="shift">
-    </div>
+            <div class="form-group">
+                <label style="margin-right:5px;">From Date</label>
+                <input type="date" class="form-control" id="from_date" style="width:140px;">
+            </div>
 
-    <div class="form-group">
-        <label>From Date</label>
-        <input type="date" class="form-control" id="from_date">
-    </div>
+            <div class="form-group">
+                <label style="margin-right:5px;">To Date</label>
+                <input type="date" class="form-control" id="to_date" style="width:140px;">
+            </div>
 
-    <div class="form-group">
-        <label>To Date</label>
-        <input type="date" class="form-control" id="to_date">
-    </div>
+            <button class="btn btn-primary" id="load-data" style="margin-left:5px;">Load Data</button>
+        </div>
 
-    <button class="btn btn-primary" id="load-data">Load Data</button>
+        <hr>
 
-    <hr>
+        <div id="attendance-table"></div>
 
-    <div id="attendance-table"></div>
+        <button class="btn btn-success" id="save-changes">Save Changes</button>
+    `);
 
-    <button class="btn btn-success" id="save-changes">Save Changes</button>
-`);
-// 🔹 Department Link Field (Autocomplete)
-let department_field = frappe.ui.form.make_control({
-    parent: page.body.find(".form-group:contains('Department')"),
-    df: {
-        fieldtype: "Link",
-        options: "Department",
-        label: "Department",
-        fieldname: "department",
-        placeholder: "Select Department"
-    },
-    render_input: true
-});
-
+    // 🔹 Department Link Field (Autocomplete) only
+    let department_field = frappe.ui.form.make_control({
+        parent: page.body.find("#department-wrapper"),
+        df: {
+            fieldtype: "Link",
+            options: "Department",
+            label: "Department :",
+            fieldname: "department",
+            placeholder: "Select Department"
+        },
+        render_input: true
+    });
 
     let tableData = [];
 
@@ -69,7 +65,7 @@ let department_field = frappe.ui.form.make_control({
                 if (r.message && r.message.custom_allow_overtime == 0) {
                     frappe.msgprint({
                         title: __("Overtime Not Allowed"),
-                        message: __("Sorry, overtime isn’t allowed for this employee."),
+                        message: __("Sorry, overtime isn't allowed for this employee."),
                         indicator: "red"
                     });
 
@@ -85,8 +81,8 @@ let department_field = frappe.ui.form.make_control({
         const emp = $("#employee").val();
         const department = department_field.get_value();
         const shift = $("#shift").val();
-        const from_date = $("#from_date").val();
-        const to_date = $("#to_date").val();
+        const from_date = $("#from_date").val();  // original datepicker value (YYYY-MM-DD)
+        const to_date = $("#to_date").val();      // original datepicker value (YYYY-MM-DD)
 
         frappe.call({
             method: "attendance_correction.attendance_correction.page.attendance_correctio.attendance_correctio.get_attendance_records",
@@ -109,10 +105,9 @@ let department_field = frappe.ui.form.make_control({
     });
 
     function renderTable(data) {
-        let total_working = 0;
+        let total_duty = 0;
         let total_overtime = 0;
         let total_present_days = 0;
-
 
         let html = `
             <table class="table table-bordered">
@@ -122,7 +117,7 @@ let department_field = frappe.ui.form.make_control({
                         <th>Name</th>
                         <th>Date</th>
                         <th>Status</th>
-                        <th>Working Hours</th>
+                        <th>Duty Hours</th>
                         <th>Overtime Hours</th>
                         <th>In Time</th>
                         <th>Out Time</th>
@@ -132,11 +127,11 @@ let department_field = frappe.ui.form.make_control({
         `;
 
         data.forEach((row, i) => {
-            total_working += parseFloat(row.working_hours) || 0;
+            total_duty += parseFloat(row.custom_duty_hours) || 0;
             total_overtime += parseFloat(row.custom_overtime) || 0;
-
-            if (row.status === "Present"){
-                total_present_days += 1 // Count Present 
+            
+            if (["Present", "Holiday"].includes(row.status)) {
+             total_present_days += 1;
             }
 
             html += `
@@ -145,24 +140,28 @@ let department_field = frappe.ui.form.make_control({
                     <td>${row.employee_name}</td>
                     <td>${row.attendance_date}</td>
 
-                  <td>
-   <select 
-    data-i="${i}" 
-    data-field="status" 
-    class="form-control status-select ${row.status === 'Present' ? 'status-present' : row.status === 'Absent' ? 'status-absent' : row.status === 'Half Day' ? 'status-half' : row.status === 'Rest' ? 'status-rest' : ''}">
-    
-    <option value="Present" ${row.status=="Present"?"selected":""}>Present</option>
-    <option value="Absent" ${row.status=="Absent"?"selected":""}>Absent</option>
-    <option value="Half Day" ${row.status=="Half Day"?"selected":""}>Half Day</option>
-    <option value="Rest" ${row.status=="Rest"?"selected":""}>Rest</option>
-</select>
-
-</td>
-
+                    <td>
+                        <select 
+                        data-i="${i}" 
+                        data-field="status" 
+                        class="form-control status-select 
+                            ${row.status === 'Present' ? 'status-present' : 
+                              row.status === 'Absent' ? 'status-absent' : 
+                              row.status === 'Half Day' ? 'status-half' : 
+                              row.status === 'Rest' ? 'status-rest' : 
+                              row.status === 'Holiday' ? 'status-holiday' : ''}">
+                        
+                        <option value="Present" ${row.status === "Present" ? "selected" : ""}>Present</option>
+                        <option value="Absent" ${row.status === "Absent" ? "selected" : ""}>Absent</option>
+                        <option value="Half Day" ${row.status === "Half Day" ? "selected" : ""}>Half Day</option>
+                        <option value="Rest" ${row.status === "Rest" ? "selected" : ""}>Rest</option>
+                        <option value="Holiday" ${row.status === "Holiday" ? "selected" : ""}>Holiday</option>
+                        </select>
+                    </td>
 
                     <td>
-                        <input type="number" data-i="${i}" data-field="working_hours"
-                            value="${row.working_hours}" class="form-control">
+                        <input type="number" data-i="${i}" data-field="custom_duty_hours"
+                            value="${row.custom_duty_hours || 0}" class="form-control">
                     </td>
 
                     <td>
@@ -189,10 +188,8 @@ let department_field = frappe.ui.form.make_control({
             <tr>
                  <th colspan="2" style="text-align:right">Present Days:</th>
                  <th>${total_present_days}</th>
-         
-                 <th style="text-align:right">Total Working Hours:</th>
-                 <th>${total_working.toFixed(2)}</th>
-         
+                 <th style="text-align:right">Total Duty Hours:</th>
+                 <th>${total_duty.toFixed(2)}</th>
                  <th style="text-align:right">Overtime Hours:</th>
                  <th>${total_overtime.toFixed(2)}</th>
              </tr>
@@ -202,45 +199,43 @@ let department_field = frappe.ui.form.make_control({
 
         $("#attendance-table").html(html);
 
-        // Update tableData on change
-// Update tableData on change
-$("input, select").on("change", function() {
-    let i = $(this).data("i");
-    let field = $(this).data("field");
-    let inputEl = $(this);
+        $("input, select").on("change", function() {
+            let i = $(this).data("i");
+            let field = $(this).data("field");
+            let inputEl = $(this);
 
-    // 🚨 overtime popup check
-    if (field === "custom_overtime") {
-        checkOvertimeAllowed(tableData[i], inputEl);
-    }
+            if (field === "custom_overtime") {
+                checkOvertimeAllowed(tableData[i], inputEl);
+            }
 
-    tableData[i][field] = inputEl.val();
+            tableData[i][field] = inputEl.val();
 
-    // 🔢 recalculate totals
-    total_working = 0;
-    total_overtime = 0;
-    tableData.forEach(row => {
-        total_working += parseFloat(row.working_hours) || 0;
-        total_overtime += parseFloat(row.custom_overtime) || 0;
-    });
+            total_duty = 0;
+            total_overtime = 0;
+            tableData.forEach(row => {
+                total_duty += parseFloat(row.custom_duty_hours) || 0;
+                total_overtime += parseFloat(row.custom_overtime) || 0;
+            });
 
-    $("tfoot th:eq(0)").next().text(total_working.toFixed(2));
-    $("tfoot th:eq(1)").text(total_overtime.toFixed(2));
+            $("tfoot tr th:contains('Total Duty Hours')").next().text(total_duty.toFixed(2));
+            $("tfoot tr th:contains('Overtime Hours')").next().text(total_overtime.toFixed(2));
 
-    // ✅ STATUS COLOR UPDATE (ADDED)
-    if (field === "status") {
-        inputEl
-            .removeClass("status-present status-absent status-half")
-            .addClass(
-                inputEl.val() === "Present"
-                    ? "status-present"
-                    : inputEl.val() === "Absent"
-                    ? "status-absent"
-                    : "status-half"
-            );
-    }
-});
-
+            if (field === "status") {
+                inputEl
+                    .removeClass("status-present status-absent status-half status-rest")
+                    .addClass(
+                        inputEl.val() === "Present"
+                            ? "status-present"
+                            : inputEl.val() === "Absent"
+                            ? "status-absent"
+                            : inputEl.val() === "Half Day"
+                            ? "status-half"
+                            : inputEl.val() === "Rest"
+                            ? "status-rest"
+                            : "status-holiday"
+                    );
+            }
+        });
     }
 
     // Save Changes Button
@@ -251,37 +246,35 @@ $("input, select").on("change", function() {
         }
         let overtimeWarningShown = false;
 
-tableData.forEach(row => {
-    if (
-        !overtimeWarningShown &&
-        row.custom_overtime != row._original_overtime
-    ) {
-        // check from backend if overtime allowed
-        frappe.call({
-            method: "frappe.client.get_value",
-            args: {
-                doctype: "Employee",
-                filters: { name: row.employee },
-                fieldname: "custom_allow_overtime"
-            },
-            async: false,
-            callback: function(r) {
-                if (r.message && r.message.custom_allow_overtime == 0) {
-                    frappe.msgprint({
-                        title: __("Overtime Not Allowed"),
-                        message: __(
-                            "Sorry, overtime isn’t allowed for employee {0}. Overtime changes will be ignored.",
-                            [row.employee]
-                        ),
-                        indicator: "red"
-                    });
-                    overtimeWarningShown = true;
-                }
+        tableData.forEach(row => {
+            if (
+                !overtimeWarningShown &&
+                row.custom_overtime != row._original_overtime
+            ) {
+                frappe.call({
+                    method: "frappe.client.get_value",
+                    args: {
+                        doctype: "Employee",
+                        filters: { name: row.employee },
+                        fieldname: "custom_allow_overtime"
+                    },
+                    async: false,
+                    callback: function(r) {
+                        if (r.message && r.message.custom_allow_overtime == 0) {
+                            frappe.msgprint({
+                                title: __("Overtime Not Allowed"),
+                                message: __(
+                                    "Sorry, overtime isn't allowed for employee {0}. Overtime changes will be ignored.",
+                                    [row.employee]
+                                ),
+                                indicator: "red"
+                            });
+                            overtimeWarningShown = true;
+                        }
+                    }
+                });
             }
         });
-    }
-});
-
 
         frappe.call({
             method: "attendance_correction.attendance_correction.page.attendance_correctio.attendance_correctio.update_attendance",
@@ -293,7 +286,6 @@ tableData.forEach(row => {
         });
     });
 };
-
 
 $(`<style>
     .status-present {
@@ -309,8 +301,20 @@ $(`<style>
     }
 
     .status-half {
-        background-color: #fff3cd !important;
-        color: #856404 !important;
+        background-color: #fff1c1 !important;
+        color: #9a6b00 !important;
+        font-weight: bold;
+    }
+    
+    .status-rest {
+        background-color: #e0f0ff !important;
+        color: #004b87 !important;
+        font-weight: bold;
+    }
+
+    .status-holiday {
+        background-color: #e8d9ff !important;
+        color: #5b2c83 !important;
         font-weight: bold;
     }
 </style>`).appendTo("head");
