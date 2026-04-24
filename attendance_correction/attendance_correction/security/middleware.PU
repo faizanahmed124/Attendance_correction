@@ -1,0 +1,19 @@
+from .ip_block import check_user_ip
+from django.http import HttpResponseForbidden
+
+
+class IPRestrictionMiddleware:
+    """
+    Har request par IP check karta hai.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            check_user_ip(request)
+        except PermissionDenied as e:
+            return HttpResponseForbidden(str(e))
+
+        return self.get_response(request)

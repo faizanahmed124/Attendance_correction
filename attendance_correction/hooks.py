@@ -8,6 +8,9 @@ app_license = "mit"
 # Apps
 # ------------------
 
+on_login = [
+    "attendance_correction.attendance_correction.security.ip_block.check_ip_on_login"
+]
 # required_apps = []
 
 # Each item in the list will be shown as an app in the apps page
@@ -180,7 +183,7 @@ app_license = "mit"
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
-# along with any modifications made in other Frappe apps
+# along with any modifications made in other frappe apps
 # override_doctype_dashboards = {
 # 	"Task": "attendance_correction.task.get_dashboard_data"
 # }
@@ -242,3 +245,7 @@ app_license = "mit"
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
+
+on_login = [
+    "attendance_correction.attendance_correction.security.ip_block.check_ip_on_login"
+]
