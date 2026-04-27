@@ -1,0 +1,19 @@
+{
+ "content": null,
+ "creation": "2026-04-25 19:09:44.236618",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-04-25 19:09:44.236618",
+ "modified_by": "Administrator",
+ "module": "Attendance Correction",
+ "name": "attendance-override-",
+ "owner": "Administrator",
+ "page_name": "attendance-override-",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Attendance Override Audit"
+}
