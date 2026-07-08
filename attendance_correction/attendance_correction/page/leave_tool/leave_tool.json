@@ -1,0 +1,19 @@
+{
+ "content": null,
+ "creation": "2026-05-14 15:40:20.255322",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-05-14 15:40:20.255322",
+ "modified_by": "Administrator",
+ "module": "Attendance Correction",
+ "name": "leave-tool",
+ "owner": "Administrator",
+ "page_name": "leave-tool",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Leave Marking Tool"
+}

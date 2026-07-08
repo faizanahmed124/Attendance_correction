@@ -99,6 +99,15 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
         return "";
     }
 
+    // ✅ LDH calculate karo duty hours se
+    function calcLDH(duty_hours) {
+        const dh = parseFloat(duty_hours) || 0;
+        if (dh > 0 && dh < 8) {
+            return (8 - dh).toFixed(2);
+        }
+        return "0.00";
+    }
+
     $("#load-data").click(() => {
         const emp        = $("#employee").val();
         const department = department_field.get_value();
@@ -116,11 +125,12 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
 
                 tableData.forEach(row => {
                     originalData[row.name] = {
-                        status:            row.status            || "",
-                        custom_duty_hours: row.custom_duty_hours || 0,
-                        custom_overtime:   row.custom_overtime   || 0,
-                        in_time:           row.in_time           || "",
-                        out_time:          row.out_time          || ""
+                        status:                 row.status                 || "",
+                        custom_duty_hours:      row.custom_duty_hours      || 0,
+                        custom_overtime:        row.custom_overtime        || 0,
+                        custom_less_duty_hour:  row.custom_less_duty_hour  || 0,
+                        in_time:                row.in_time                || "",
+                        out_time:               row.out_time               || ""
                     };
                 });
 
@@ -134,8 +144,9 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
     });
 
     function renderTable(data) {
-        let total_duty = 0;
-        let total_overtime = 0;
+        let total_duty         = 0;
+        let total_overtime     = 0;
+        let total_ldh          = 0;
         let total_present_days = 0;
 
         let html = `
@@ -148,6 +159,7 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                         <th style="width:110px;">Status</th>
                         <th style="width:70px;">Duty Hrs</th>
                         <th style="width:70px;">OT Hrs</th>
+                        <th style="width:70px;">LDH</th>
                         <th style="width:150px;">In Time</th>
                         <th style="width:150px;">Out Time</th>
                     </tr>
@@ -156,14 +168,18 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
         `;
 
         data.forEach((row, i) => {
-            total_duty         += parseFloat(row.custom_duty_hours) || 0;
-            total_overtime     += parseFloat(row.custom_overtime)   || 0;
+            total_duty         += parseFloat(row.custom_duty_hours)     || 0;
+            total_overtime     += parseFloat(row.custom_overtime)       || 0;
+            total_ldh          += parseFloat(row.custom_less_duty_hour) || 0;
 
             if (["Present", "Holiday"].includes(row.status)) {
                 total_present_days += 1;
+            } else if (row.status === "Half Day") {
+                total_present_days += 0.5;
             }
 
             const statusClass = getStatusClass(row.status);
+            const ldh_val = parseFloat(row.custom_less_duty_hour || 0).toFixed(2);
 
             html += `
                 <tr data-name="${row.name}">
@@ -189,6 +205,10 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                             value="${row.custom_overtime || 0}" class="form-control duty-ot-input">
                     </td>
                     <td>
+                        <input type="number" data-i="${i}" data-field="custom_less_duty_hour" data-name="${row.name}"
+                            value="${ldh_val}" class="form-control duty-ot-input ldh-input" readonly>
+                    </td>
+                    <td>
                         <input type="text" data-i="${i}" data-field="in_time" data-name="${row.name}"
                             value="${row.in_time || ''}" class="form-control time-input">
                     </td>
@@ -206,11 +226,12 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                 <tr>
                     <th colspan="2" style="text-align:right">Present Days:</th>
                     <th>${total_present_days}</th>
-                    <th style="text-align:right">Total Duty Hours:</th>
+                    <th style="text-align:right">Total Duty Hrs:</th>
                     <th>${total_duty.toFixed(2)}</th>
-                    <th style="text-align:right">Overtime Hours:</th>
+                    <th style="text-align:right">OT Hrs:</th>
                     <th>${total_overtime.toFixed(2)}</th>
-                    <th></th>
+                    <th style="text-align:right">LDH:</th>
+                    <th>${total_ldh.toFixed(2)}</th>
                 </tr>
             </tfoot>
             </table>
@@ -227,8 +248,23 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
 
             tableData[i][field] = newVal;
 
+            // ✅ Half Day: force duty hours = 0.5, overtime = 0
+            if (field === "status" && newVal === "Half Day") {
+                tableData[i]["custom_duty_hours"] = 0.5;
+                tableData[i]["custom_overtime"]   = 0;
+                $(`tr[data-name="${rowName}"] input[data-field="custom_duty_hours"]`).val(0.5);
+                $(`tr[data-name="${rowName}"] input[data-field="custom_overtime"]`).val(0);
+            }
+
             if (field === "custom_overtime") {
                 checkOvertimeAllowed(tableData[i], inputEl);
+            }
+
+            // ✅ Duty hours change hone par LDH live update karo
+            if (field === "custom_duty_hours" || (field === "status" && newVal === "Half Day")) {
+                const new_ldh = calcLDH(tableData[i]["custom_duty_hours"]);
+                tableData[i]["custom_less_duty_hour"] = new_ldh;
+                $(`tr[data-name="${rowName}"] input[data-field="custom_less_duty_hour"]`).val(new_ldh);
             }
 
             evaluateDirty(rowName, i);
@@ -240,14 +276,27 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                 $row.removeClass("row-dirty");
             }
 
-            let total_duty = 0;
-            let total_overtime = 0;
+            // ✅ Footer live update
+            let total_duty         = 0;
+            let total_overtime     = 0;
+            let total_ldh          = 0;
+            let total_present_days = 0;
+
             tableData.forEach(row => {
-                total_duty     += parseFloat(row.custom_duty_hours) || 0;
-                total_overtime += parseFloat(row.custom_overtime)   || 0;
+                total_duty         += parseFloat(row.custom_duty_hours)     || 0;
+                total_overtime     += parseFloat(row.custom_overtime)       || 0;
+                total_ldh          += parseFloat(row.custom_less_duty_hour) || 0;
+                if (["Present", "Holiday"].includes(row.status)) {
+                    total_present_days += 1;
+                } else if (row.status === "Half Day") {
+                    total_present_days += 0.5;
+                }
             });
-            $("tfoot tr th:contains('Total Duty Hours')").next().text(total_duty.toFixed(2));
-            $("tfoot tr th:contains('Overtime Hours')").next().text(total_overtime.toFixed(2));
+
+            $("tfoot tr th:nth-child(5)").text(total_duty.toFixed(2));
+            $("tfoot tr th:nth-child(7)").text(total_overtime.toFixed(2));
+            $("tfoot tr th:nth-child(9)").text(total_ldh.toFixed(2));
+            $("tfoot tr th:nth-child(3)").text(total_present_days);
 
             if (field === "status") {
                 inputEl
@@ -278,11 +327,12 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
 
                 changedRows.forEach(row => {
                     originalData[row.name] = {
-                        status:            row.status            || "",
-                        custom_duty_hours: row.custom_duty_hours || 0,
-                        custom_overtime:   row.custom_overtime   || 0,
-                        in_time:           row.in_time           || "",
-                        out_time:          row.out_time          || ""
+                        status:                row.status                || "",
+                        custom_duty_hours:     row.custom_duty_hours     || 0,
+                        custom_overtime:       row.custom_overtime       || 0,
+                        custom_less_duty_hour: row.custom_less_duty_hour || 0,
+                        in_time:               row.in_time               || "",
+                        out_time:              row.out_time              || ""
                     };
                     dirtyRows.delete(row.name);
                     $(`tr[data-name="${row.name}"]`).removeClass("row-dirty");
@@ -304,19 +354,6 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
 $(`<style>
     .page-head-content {
         position: relative !important;
-    }
-
-    .page-head-content .page-title {
-        position: absolute !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        width: auto !important;
-        max-width: 60% !important;
-        text-align: center !important;
-    }
-
-    .page-head-content .page-title h3.title-text {
-        text-align: center !important;
     }
 
     .attendance-table-wrapper .table {
@@ -414,6 +451,14 @@ $(`<style>
         margin: 0 auto !important;
         display: block !important;
         text-align: center !important;
+    }
+
+    /* LDH read-only input style */
+    .attendance-table-wrapper input.ldh-input {
+        background-color: #f0f0f0 !important;
+        color: #555555 !important;
+        border: 1px solid #ccc !important;
+        cursor: not-allowed !important;
     }
 
     /* Wider inputs for in/out time columns */

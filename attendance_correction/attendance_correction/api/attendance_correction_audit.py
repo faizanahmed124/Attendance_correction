@@ -3,6 +3,9 @@ import re
 from frappe.utils import formatdate, format_datetime, flt
 
 
+ALLOWED_FIELDS = {"duty hours", "attendance status", "overtime"}
+
+
 def parse_correction_comment(comment_text):
     changes = []
     pattern = re.compile(
@@ -99,7 +102,6 @@ def get_correction_audit(
         """
         SELECT
             c.reference_name  AS attendance_name,
-            -- comment_by is often empty on Info comments; owner is reliable
             COALESCE(NULLIF(c.comment_by, ''), c.owner)  AS comment_by,
             c.owner           AS owner,
             c.creation        AS changed_on,
@@ -132,6 +134,11 @@ def get_correction_audit(
         uinfo = user_info_cache[comment_by]
 
         for change in parse_correction_comment(comment["comment_text"]):
+
+            # ── Only show duty hours, attendance status, overtime ──
+            if change["field"].lower() not in ALLOWED_FIELDS:
+                continue
+
             if override_type == "reduction" and not change["is_reduction"]:
                 continue
             if override_type == "increase" and change["is_reduction"]:
@@ -150,11 +157,8 @@ def get_correction_audit(
                 "department":      att.get("department", ""),
                 "attendance_date": formatdate(att["attendance_date"], "dd-MM-yyyy")
                                    if att.get("attendance_date") else "",
-                # changed_by = raw user identifier (email/username)
                 "changed_by":      comment_by,
-                # first_name shown in Username column on frontend
                 "first_name":      uinfo.get("first_name") or comment_by,
-                # username = Frappe username field
                 "username":        uinfo.get("username") or comment_by,
                 "changed_on":      format_datetime(comment["changed_on"], "dd-MM-yyyy HH:mm")
                                    if comment.get("changed_on") else "",

@@ -11,6 +11,13 @@ app_license = "mit"
 on_login = [
     "attendance_correction.attendance_correction.security.ip_block.check_ip_on_login"
 ]
+
+fixtures = [
+    {
+        "doctype": "Custom Field",
+        "filters": [["fieldname", "like", "custom_%"]]
+    }
+]
 # required_apps = []
 
 # Each item in the list will be shown as an app in the apps page
