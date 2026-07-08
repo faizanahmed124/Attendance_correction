@@ -8,9 +8,9 @@ app_license = "mit"
 # Apps
 # ------------------
 
-on_login = [
-    "attendance_correction.attendance_correction.security.ip_block.check_ip_on_login"
-]
+# on_login = [
+#     "attendance_correction.attendance_correction.security.ip_block.check_ip_on_login"
+# ]
 
 fixtures = [
     {
@@ -253,6 +253,6 @@ fixtures = [
 # }
 
 
-on_login = [
-    "attendance_correction.attendance_correction.security.ip_block.check_ip_on_login"
-]
+# on_login = [
+#     "attendance_correction.attendance_correction.security.ip_block.check_ip_on_login"
+# ]
