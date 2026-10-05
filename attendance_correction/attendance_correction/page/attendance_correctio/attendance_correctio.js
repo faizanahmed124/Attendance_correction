@@ -96,7 +96,17 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
         if (status === "Half Day") return "status-half";
         if (status === "Rest")     return "status-rest";
         if (status === "Holiday")  return "status-holiday";
+        if (status === "On Leave") return "status-leave";
         return "";
+    }
+
+    // ✅ Statuses that count as a full present day
+    const FULL_DAY_STATUSES = ["Present", "Holiday", "On Leave"];
+
+    function getPresentDayValue(status) {
+        if (FULL_DAY_STATUSES.includes(status)) return 1;
+        if (status === "Half Day") return 0.5;
+        return 0;
     }
 
     // ✅ LDH calculate karo duty hours se
@@ -171,12 +181,7 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
             total_duty         += parseFloat(row.custom_duty_hours)     || 0;
             total_overtime     += parseFloat(row.custom_overtime)       || 0;
             total_ldh          += parseFloat(row.custom_less_duty_hour) || 0;
-
-            if (["Present", "Holiday"].includes(row.status)) {
-                total_present_days += 1;
-            } else if (row.status === "Half Day") {
-                total_present_days += 0.5;
-            }
+            total_present_days += getPresentDayValue(row.status);
 
             const statusClass = getStatusClass(row.status);
             const ldh_val = parseFloat(row.custom_less_duty_hour || 0).toFixed(2);
@@ -194,6 +199,7 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                             <option value="Half Day" ${row.status === "Half Day" ? "selected" : ""}>Half Day</option>
                             <option value="Rest"     ${row.status === "Rest"     ? "selected" : ""}>Rest</option>
                             <option value="Holiday"  ${row.status === "Holiday"  ? "selected" : ""}>Holiday</option>
+                            <option value="On Leave" ${row.status === "On Leave" ? "selected" : ""}>On Leave</option>
                         </select>
                     </td>
                     <td>
@@ -239,7 +245,8 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
 
         $("#attendance-table").html(`<div class="attendance-table-wrapper">${html}</div>`);
 
-        $("#attendance-table").on("change", "input, select", function() {
+        // ✅ .off() prevents duplicate handlers on every Load Data click
+        $("#attendance-table").off("change").on("change", "input, select", function() {
             const i       = parseInt($(this).data("i"));
             const field   = $(this).data("field");
             const rowName = $(this).data("name");
@@ -286,11 +293,7 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
                 total_duty         += parseFloat(row.custom_duty_hours)     || 0;
                 total_overtime     += parseFloat(row.custom_overtime)       || 0;
                 total_ldh          += parseFloat(row.custom_less_duty_hour) || 0;
-                if (["Present", "Holiday"].includes(row.status)) {
-                    total_present_days += 1;
-                } else if (row.status === "Half Day") {
-                    total_present_days += 0.5;
-                }
+                total_present_days += getPresentDayValue(row.status);
             });
 
             $("tfoot tr th:nth-child(5)").text(total_duty.toFixed(2));
@@ -300,7 +303,7 @@ frappe.pages['attendance_correctio'].on_page_load = function(wrapper) {
 
             if (field === "status") {
                 inputEl
-                    .removeClass("status-present status-absent status-half status-rest status-holiday")
+                    .removeClass("status-present status-absent status-half status-rest status-holiday status-leave")
                     .addClass(getStatusClass(newVal));
             }
         });
@@ -433,6 +436,17 @@ $(`<style>
     .attendance-table-wrapper select.status-holiday {
         background-color: #e8d9ff !important;
         color: #5b2c83 !important;
+        font-weight: bold !important;
+        -webkit-appearance: none;
+        appearance: none;
+        margin: 0 auto !important;
+        display: block !important;
+        text-align: center !important;
+    }
+
+    .attendance-table-wrapper select.status-leave {
+        background-color: #ffe5d0 !important;
+        color: #b45309 !important;
         font-weight: bold !important;
         -webkit-appearance: none;
         appearance: none;
