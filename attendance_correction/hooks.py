@@ -139,13 +139,25 @@ fixtures = [
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+doctype_js = {
+	"Leave Encashment": "public/js/leave_encashment.js"
+}
+
+override_doctype_class = {
+	"Leave Encashment": "attendance_correction.attendance_correction.overrides.leave_encashment.CustomLeaveEncashment"
+}
 
 # Document Events
 # ---------------
 # Hook on document methods and events
+
+_sync = "attendance_correction.attendance_correction.overrides.leave_encashment.sync_on_leave_change"
+
+# Draft Leave Encashments follow Leave Allocation / Leave Application changes
+doc_events = {
+	"Leave Allocation": {"on_submit": _sync, "on_update_after_submit": _sync, "on_cancel": _sync},
+	"Leave Application": {"on_submit": _sync, "on_cancel": _sync},
+}
 
 # doc_events = {
 # 	"*": {
