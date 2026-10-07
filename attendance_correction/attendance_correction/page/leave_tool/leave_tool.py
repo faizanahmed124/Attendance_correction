@@ -81,6 +81,12 @@ def apply_leave(employee, leave_type, dates):
                 new_att.submit()
                 frappe.db.commit()
 
+            # ── STEP 2b: Delete the Attendance cancelled in STEP 1 ───────────
+            # Only the new On Leave record should remain for this date
+            if att_name and frappe.db.get_value("Attendance", att_name, "docstatus") == 2:
+                frappe.delete_doc("Attendance", att_name, force=1, ignore_permissions=True)
+                frappe.db.commit()
+
             # ── STEP 3: Check duplicate Leave Application ─────────────────────
             existing_la = frappe.db.exists(
                 "Leave Application",
