@@ -44,21 +44,21 @@ def get_attendance_records(employee=None, department=None, shift=None, from_date
         "Attendance",
         filters=filters,
         fields=[
-            "name",
-            "employee",
-            "employee_name",
-            "attendance_date",
-            "status",
-            "custom_duty_hours",
-            "custom_overtime",
-            "custom_less_duty_hour",   # ← LDH ADDED
-            "in_time",
-            "out_time",
-            "docstatus"
+            "name", "employee", "employee_name", "attendance_date", "status",
+            "custom_duty_hours", "custom_overtime", "custom_less_duty_hour",
+            "in_time", "out_time", "docstatus"
         ],
-        order_by="attendance_date ASC"
     )
 
+    # ✅ Sort: date ascending, phir employee ID numeric ascending (1001, 1002, ...)
+    def sort_key(row):
+        emp = str(row.get("employee") or "")
+        emp_num = int(emp) if emp.isdigit() else float("inf")
+        return (row.get("attendance_date"), emp_num, emp)
+
+    attendance_records.sort(key=sort_key)
+
+    # Format dates AFTER sorting
     for row in attendance_records:
         if row.get("attendance_date"):
             row["attendance_date"] = formatdate(row["attendance_date"], "dd-MM-yyyy")
@@ -68,7 +68,6 @@ def get_attendance_records(employee=None, department=None, shift=None, from_date
             row["out_time"] = format_datetime(row["out_time"], "dd-MM-yyyy HH:mm")
 
     return attendance_records
-
 # -----------------------------
 # Update Attendance Records (Optimized)
 # -----------------------------
