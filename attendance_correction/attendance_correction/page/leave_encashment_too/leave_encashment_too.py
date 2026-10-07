@@ -2,7 +2,11 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate
 
+<<<<<<< HEAD
 from attendance_correction.attendance_correction.leave_encashment import (
+=======
+from attendance_correction.attendance_correction.overrides.leave_encashment import (
+>>>>>>> ba5c5b67e7580f9fbfe5ba4a2de7c0c57ea854a3
 	get_leave_allocation_summary,
 )
 

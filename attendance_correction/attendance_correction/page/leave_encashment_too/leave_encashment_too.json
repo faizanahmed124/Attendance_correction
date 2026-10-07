@@ -1,10 +1,18 @@
 {
  "content": null,
+<<<<<<< HEAD
  "creation": "2026-09-30 15:02:52.435463",
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
  "modified": "2026-09-30 16:04:11.626004",
+=======
+ "creation": "2026-09-30 15:06:16.851623",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-09-30 15:06:16.851623",
+>>>>>>> ba5c5b67e7580f9fbfe5ba4a2de7c0c57ea854a3
  "modified_by": "Administrator",
  "module": "Attendance Correction",
  "name": "leave-encashment-too",
